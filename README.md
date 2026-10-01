@@ -136,5 +136,7 @@ newer.
 | `serve.py` | Localhost server. |
 | `check.py` | 101 browser-driven checks: `python3 check.py`. Needs `pip install playwright && playwright install chromium`. |
 | `vendor/three.bundle.min.js` | three.js r186 with OrbitControls, CSS2DRenderer and GLTFLoader, bundled so the page works offline. MIT, see `vendor/LICENSE-three.txt`. |
+| `vendor/entry.js` | What goes into that bundle, and the command to rebuild it. |
+| `CLAUDE.md` | Working notes for whoever picks this up next: decisions, gotchas, where things stand. |
 
 Fonts come from Google Fonts when online and fall back to system fonts when not.
