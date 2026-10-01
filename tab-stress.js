@@ -3,7 +3,7 @@
 // this file drives it, draws it, and keeps running if you switch tabs.
 
 import { WORKLOADS } from './model.js';
-import { createRun, COOLERS, TJMAX, AMBIENT } from './stress.js';
+import { createRun, COOLERS, TJMAX, AMBIENT, heatRGB } from './stress.js';
 import { esc, $, table, legend, tag } from './ui.js';
 import { lineChart } from './charts.js';
 
@@ -67,10 +67,73 @@ function compact(n) {
   return n.toFixed(n < 10 ? 2 : 0);
 }
 
+// --- The overlay on the 3D view ---------------------------------------------
+// Built once per run, then only its text and bars change, so its buttons stay
+// clickable while the numbers move.
+
+function state(r) {
+  if (r.dnf) return ['muted', '–', 'Can’t run'];
+  if (r.tripped) return ['critical', '✕', 'Shut down'];
+  if (r.f < r.chip.clockGHz * 0.98) return ['warning', '!', 'Throttling'];
+  return ['good', '✓', 'Full clock'];
+}
+
+function hudBuild() {
+  const el = document.getElementById('stresshud');
+  if (!el) return;
+  if (!run) { el.hidden = true; el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="hud-head">
+      <b>Stress test</b><span class="hud-what">${esc(run.wl.name)} · ${esc(run.cooler.label)}</span>
+      <span class="hud-prog" aria-hidden="true"><i></i></span><span class="hud-time"></span>
+      <button type="button" class="hud-btn" data-hud="toggle" id="hud-toggle">Pause</button>
+      <button type="button" class="hud-btn" data-hud="open" id="hud-open">Details</button>
+      <button type="button" class="hud-btn x" data-hud="close" id="hud-close" aria-label="Close the stress test">×</button>
+    </div>
+    <div class="hud-cards">${run.runs.map((r) => `
+      <div class="hud-card" data-key="${r.key}">
+        <div class="hc-top"><span class="sw s${r.key}"></span><b>${esc(tag(r.chip))}</b><span class="pill"><i aria-hidden="true"></i><span class="hc-state"></span></span></div>
+        <div class="hc-temp"><b class="hc-t">–</b><small>°C</small><span class="hc-bar"><i></i></span></div>
+        <div class="hc-row"><span class="hc-f"></span><span class="hc-p"></span></div>
+      </div>`).join('')}</div>`;
+  el.hidden = false;
+  el.onclick = (ev) => {
+    const b = ev.target.closest('[data-hud]');
+    if (!b || !ctxRef) return;
+    if (b.dataset.hud === 'toggle') start(ctxRef);
+    else if (b.dataset.hud === 'open') ctxRef.show('stress');
+    else if (b.dataset.hud === 'close') reset(ctxRef);
+  };
+}
+
+function hudUpdate() {
+  const el = document.getElementById('stresshud');
+  if (!el || !run || el.hidden) return;
+  el.querySelector('.hud-prog i').style.width = `${(run.t / run.duration) * 100}%`;
+  el.querySelector('.hud-time').textContent = `${mmss(run.t)} / ${mmss(run.duration)}`;
+  el.querySelector('#hud-toggle').textContent = running ? 'Pause' : run.done ? 'Run again' : 'Resume';
+  for (const r of run.runs) {
+    const card = el.querySelector(`.hud-card[data-key="${r.key}"]`);
+    if (!card) continue;
+    const [tone, icon, text] = state(r);
+    const pill = card.querySelector('.pill');
+    pill.className = `pill ${tone}`;
+    pill.querySelector('i').textContent = icon;
+    card.querySelector('.hc-state').textContent = text;
+    card.querySelector('.hc-t').textContent = r.hot.toFixed(0);
+    const bar = card.querySelector('.hc-bar i');
+    bar.style.width = `${Math.max(2, Math.min(100, ((r.hot - 20) / 85) * 100))}%`;
+    bar.style.background = `rgb(${heatRGB(r.hot).map((v) => Math.round(v * 255)).join(',')})`;
+    card.querySelector('.hc-f').textContent = r.tripped ? 'off' : `${r.f.toFixed(2)} GHz`;
+    card.querySelector('.hc-p').textContent = `${r.P.toFixed(1)} W`;
+  }
+}
+
 function paint(force = false) {
   const now = performance.now();
   if (!force && now - lastPaint < 125) return;
   lastPaint = now;
+  hudUpdate();
   if (!ctxRef || ctxRef.current() !== 'stress') return;
   const st = $('#stress-status');
   if (st) st.innerHTML = statusLine();
@@ -110,6 +173,7 @@ function start(ctx) {
     ctx.scene.set('thermal', true);
     ctx.scene.set('lid', false);
     ctx.hooks.syncToggles && ctx.hooks.syncToggles();
+    hudBuild();
   }
   running = true;
   lastReal = performance.now();
@@ -121,10 +185,17 @@ function reset(ctx) {
   running = false;
   cancelAnimationFrame(raf);
   run = null;
+  hudBuild();
   ctx.scene.setThermal(null);
   ctx.scene.set('thermal', false);
   ctx.hooks.syncToggles && ctx.hooks.syncToggles();
-  ctx.show('stress', { keepScroll: true });
+  if (ctx.current() === 'stress') ctx.show('stress', { keepScroll: true });
+}
+
+// Start a run from anywhere (the Overview link uses this).
+export function quickStress(ctx) {
+  ctxRef = ctxRef || ctx;
+  if (!running) start(ctx);
 }
 
 export const stressTab = {

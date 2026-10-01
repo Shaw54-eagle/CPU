@@ -37,11 +37,11 @@ const views = document.getElementById('views');
 let panel = null;
 
 function renderViews() {
-  const real = scene.mode === 'real';
+  const real = scene.mode !== 'lineup';
   const list = real ? [] : benchChips();
   if (cam.view !== 'all' && !list.some((c) => c.key === cam.view)) cam.view = 'all';
   views.innerHTML = `<span class="glabel">View</span>
-    <button type="button" role="radio" aria-checked="${cam.view === 'all'}" data-view="all" id="v-all" title="Everything (0)">All</button>
+    <button type="button" role="radio" aria-checked="${cam.view === 'all'}" data-view="all" id="v-all" title="Everything (0)" ${scene.mode === 'timeline' ? 'disabled' : ''}>All</button>
     ${list.map((c, i) => `<button type="button" role="radio" aria-checked="${cam.view === c.key}" data-view="${c.key}" id="v-${c.key}" title="${esc(c.title)} (${i + 1})"><span class="sw s${c.key}"></span>${esc(tag(c))}</button>`).join('')}`;
   for (const id of ['f-close', 'f-under', 't-lid', 't-explode', 't-bus', 't-power', 't-thermal']) {
     document.getElementById(id).disabled = real;
@@ -69,7 +69,7 @@ const legend = document.getElementById('heatlegend');
 
 function syncToggles() {
   for (const b of document.querySelectorAll('[data-toggle]')) b.setAttribute('aria-pressed', String(scene.get(b.dataset.toggle)));
-  legend.hidden = !scene.get('thermal') || scene.mode === 'real';
+  legend.hidden = !scene.get('thermal') || scene.mode !== 'lineup';
   if (panel) panel.syncPowerButton();
 }
 
@@ -80,7 +80,7 @@ function setView(view) {
 }
 
 function flip(flag) {
-  if (scene.mode === 'real') return;
+  if (scene.mode !== 'lineup') return;
   cam[flag] = !cam[flag];
   if (flag === 'close' && cam.close) {
     cam.under = false;
@@ -91,7 +91,7 @@ function flip(flag) {
 }
 
 function toggle(key) {
-  if (scene.mode === 'real' && key !== 'labels') return;
+  if (scene.mode !== 'lineup' && key !== 'labels') return;
   const on = !scene.get(key);
   scene.set(key, on);
   if (key === 'power' && on && !cam.under) { cam.under = true; cam.close = false; applyCamera(); }
@@ -140,6 +140,7 @@ addEventListener('keydown', (ev) => {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
   if (ev.target.closest('input, textarea, select')) return;
   const k = ev.key.toLowerCase();
+  if (scene.mode === 'timeline') return;   // the timeline has its own keys
   const keys = scene.mode === 'real' ? [] : benchChips().map((c) => c.key);
   let handled = true;
   if (k === '0') setView('all');

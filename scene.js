@@ -826,12 +826,17 @@ export function createScene(container) {
     tween = { from: camera.position.clone(), fromT: controls.target.clone(), to: v.pos, toT: v.target, t0: performance.now(), dur: 1100 };
   }
 
+  // 'timeline' hands the viewport to the timeline stage and stops drawing.
+  // Coming back from it, the camera is only reset if the bench changed.
+  let mode3d = 'lineup';
   function setMode(m) {
     if (m === mode) return;
     mode = m;
+    renderer.domElement.style.visibility = mode === 'timeline' ? 'hidden' : '';
+    if (mode === 'timeline') return;
     benchGroup.visible = mode === 'lineup';
     realGroup.visible = mode === 'real';
-    focus('all');
+    if (mode !== mode3d) { mode3d = mode; focus('all'); }
   }
 
   // --- Picking ---------------------------------------------------------------
@@ -1107,10 +1112,12 @@ export function createScene(container) {
     }
 
     ruler.visible = !!want.labels && camera.position.y > 0 && mode === 'lineup';
-    labels.domElement.hidden = !want.labels;
+    labels.domElement.hidden = !want.labels || mode === 'timeline';
 
-    renderer.render(scene, camera);
-    labels.render(scene, camera);
+    if (mode !== 'timeline') {
+      renderer.render(scene, camera);
+      labels.render(scene, camera);
+    }
     requestAnimationFrame(frame);
   }
 

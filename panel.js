@@ -5,10 +5,11 @@ import {
   part, race, bytesPow2, seconds,
 } from './model.js';
 import { esc, $, sup, fmt, table, bars, legend, wireTips, benchChips, onBenchChange, tag } from './ui.js';
-import { stressTab } from './tab-stress.js';
+import { stressTab, quickStress } from './tab-stress.js';
 import { watchTab } from './tab-watch.js';
 import { buildTab } from './tab-build.js';
 import { realTab } from './tab-real.js';
+import { timelineTab } from './tab-timeline.js';
 
 const val = (c, id) => c.core.find((x) => x.id === id) || c.uncore.find((x) => x.id === id);
 
@@ -33,6 +34,7 @@ const overviewTab = {
         <li><b>The lanes.</b> One line per byte that moves on every load: 1, 2, 4, 8 or 16.</li>
         <li><b>The copper-coloured blocks.</b> That is the integer datapath, and it is the only part of the die that changes much. Turn on <em>Explode</em> to lift it off the die.</li>
         <li><b>Underneath.</b> Red contacts bring power in, blue ones take it back to ground. Wider chips draw more current and need more of both.</li>
+        <li><b>Under load.</b> A stress test runs every core flat out and puts live temperature, clock and power over each chip. <button type="button" class="linkbtn" data-act="quickstress" id="quick-stress">Run one now</button></li>
       </ul>
       <div class="callout">
         <b>Is any of this real?</b>
@@ -254,13 +256,13 @@ function startRace(ctx, id) {
 
 const TABS = {
   overview: overviewTab, input: inputTab, usage: usageTab, parts: partsTab, size: sizeTab,
-  speed: speedTab, stress: stressTab, watch: watchTab, build: buildTab, real: realTab,
+  speed: speedTab, stress: stressTab, watch: watchTab, build: buildTab, real: realTab, timeline: timelineTab,
 };
 const NAV = [
   ['compare', 'Compare', [['overview', 'Overview'], ['input', 'Input'], ['usage', 'Usage'], ['parts', 'Parts'], ['size', 'Size']]],
   ['run', 'Run', [['speed', 'Speed'], ['stress', 'Stress test'], ['watch', 'Watch an op']]],
   ['build', 'Build', [['build', 'Build a chip']]],
-  ['real', 'Real chips', [['real', 'Real chips']]],
+  ['history', 'History', [['timeline', 'Timeline'], ['real', 'Real chips']]],
 ];
 const groupOf = (id) => NAV.find(([, , list]) => list.some(([t]) => t === id));
 
@@ -297,7 +299,7 @@ export function createPanel(root, scene, hooks = {}) {
     const scrollTop = body.scrollTop;
     body.innerHTML = TABS[id].render(ctx);
     body.scrollTop = keepScroll ? scrollTop : 0;
-    scene.setMode(id === 'real' ? 'real' : 'lineup');
+    scene.setMode(id === 'real' ? 'real' : id === 'timeline' ? 'timeline' : 'lineup');
     if (TABS[id].mount) TABS[id].mount(ctx);
     if (id === 'parts' && selectedPart) showPart(selectedPart, { scroll: !keepScroll });
     if (id === 'input') syncPowerButton();
@@ -362,6 +364,7 @@ export function createPanel(root, scene, hooks = {}) {
       if (pr) { showPart(pr.dataset.part === selectedPart ? null : pr.dataset.part, { scroll: true }); return; }
       if (ev.target.closest('[data-act="clear"]')) { showPart(null); return; }
     }
+    if (ev.target.closest('[data-act="quickstress"]')) { quickStress(ctx); return; }
     if (ev.target.closest('[data-act="power"]')) {
       scene.set('power', !scene.get('power'));
       document.dispatchEvent(new CustomEvent('bitwidth:sync'));
@@ -394,6 +397,12 @@ export function createPanel(root, scene, hooks = {}) {
 
   onBenchChange(() => {
     if (['overview', 'input', 'usage', 'parts', 'size', 'speed'].includes(current)) show(current, { keepScroll: true });
+  });
+
+  // Back, forward and typed links (#stress, #timeline…) switch tabs on an open page too.
+  addEventListener('hashchange', () => {
+    const id = location.hash.slice(1);
+    if (TABS[id] && id !== current) show(id);
   });
 
   let start = location.hash.slice(1);
