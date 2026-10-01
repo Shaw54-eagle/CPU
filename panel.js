@@ -10,6 +10,7 @@ import { watchTab } from './tab-watch.js';
 import { buildTab } from './tab-build.js';
 import { realTab } from './tab-real.js';
 import { timelineTab } from './tab-timeline.js';
+import { showroomTab } from './tab-showroom.js';
 
 const val = (c, id) => c.core.find((x) => x.id === id) || c.uncore.find((x) => x.id === id);
 
@@ -257,12 +258,14 @@ function startRace(ctx, id) {
 const TABS = {
   overview: overviewTab, input: inputTab, usage: usageTab, parts: partsTab, size: sizeTab,
   speed: speedTab, stress: stressTab, watch: watchTab, build: buildTab, real: realTab, timeline: timelineTab,
+  showroom: showroomTab,
 };
 const NAV = [
   ['compare', 'Compare', [['overview', 'Overview'], ['input', 'Input'], ['usage', 'Usage'], ['parts', 'Parts'], ['size', 'Size']]],
   ['run', 'Run', [['speed', 'Speed'], ['stress', 'Stress test'], ['watch', 'Watch an op']]],
   ['build', 'Build', [['build', 'Build a chip']]],
   ['history', 'History', [['timeline', 'Timeline'], ['real', 'Real chips']]],
+  ['showroom', 'Showroom', [['showroom', 'A realistic chip']]],
 ];
 const groupOf = (id) => NAV.find(([, , list]) => list.some(([t]) => t === id));
 
@@ -299,7 +302,7 @@ export function createPanel(root, scene, hooks = {}) {
     const scrollTop = body.scrollTop;
     body.innerHTML = TABS[id].render(ctx);
     body.scrollTop = keepScroll ? scrollTop : 0;
-    scene.setMode(id === 'real' ? 'real' : id === 'timeline' ? 'timeline' : 'lineup');
+    scene.setMode(['real', 'timeline', 'showroom'].includes(id) ? id : 'lineup');
     if (TABS[id].mount) TABS[id].mount(ctx);
     if (id === 'parts' && selectedPart) showPart(selectedPart, { scroll: !keepScroll });
     if (id === 'input') syncPowerButton();

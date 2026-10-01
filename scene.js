@@ -826,14 +826,15 @@ export function createScene(container) {
     tween = { from: camera.position.clone(), fromT: controls.target.clone(), to: v.pos, toT: v.target, t0: performance.now(), dur: 1100 };
   }
 
-  // 'timeline' hands the viewport to the timeline stage and stops drawing.
-  // Coming back from it, the camera is only reset if the bench changed.
+  // 'timeline' and 'showroom' hand the viewport to a stage of their own and
+  // stop drawing. Coming back, the camera is only reset if the bench changed.
   let mode3d = 'lineup';
+  const overlay = () => mode === 'timeline' || mode === 'showroom';
   function setMode(m) {
     if (m === mode) return;
     mode = m;
-    renderer.domElement.style.visibility = mode === 'timeline' ? 'hidden' : '';
-    if (mode === 'timeline') return;
+    renderer.domElement.style.visibility = overlay() ? 'hidden' : '';
+    if (overlay()) return;
     benchGroup.visible = mode === 'lineup';
     realGroup.visible = mode === 'real';
     if (mode !== mode3d) { mode3d = mode; focus('all'); }
@@ -1112,9 +1113,9 @@ export function createScene(container) {
     }
 
     ruler.visible = !!want.labels && camera.position.y > 0 && mode === 'lineup';
-    labels.domElement.hidden = !want.labels || mode === 'timeline';
+    labels.domElement.hidden = !want.labels || overlay();
 
-    if (mode !== 'timeline') {
+    if (!overlay()) {
       renderer.render(scene, camera);
       labels.render(scene, camera);
     }

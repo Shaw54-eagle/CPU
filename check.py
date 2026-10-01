@@ -296,6 +296,100 @@ def run(url):
         wafer = page.evaluate(COVERAGE_JS, ["#wafer"])
         check("wafer map is drawn", wafer["cover"] > 0.3, wafer)
 
+        print("Showroom")
+        page.click("#group-showroom")
+        page.wait_for_function("window.bitWidthLab.showroom && (window.bitWidthLab.showroom.state.ready || window.bitWidthLab.showroom.state.error)", timeout=90000)
+        SR = "window.bitWidthLab.showroom"
+        drawn = lambda: page.evaluate(f"{SR}.debug.drawn()")
+        hover_label = lambda part: page.evaluate(f"{SR}.debug.project('{part}')")
+        check("the model loaded", page.evaluate(f"{SR}.state.ready") and not page.evaluate(f"{SR}.state.error"), page.evaluate(f"{SR}.state.error"))
+        check("the showroom takes over the viewport", page.locator("#sr").is_visible()
+              and page.evaluate("getComputedStyle(document.querySelector('#viewport > canvas')).visibility") == "hidden")
+        page.wait_for_timeout(1500)
+        cov = page.evaluate(COVERAGE_JS, ["#sr-canvas"])
+        check("the chip is drawn", cov["cover"] > 0.08, cov)
+        names = page.locator("#sr-parts .sr-part b").all_inner_texts()
+        check("ten parts, heat spreader on top and lands at the bottom", len(names) == 10 and names[0] == "Heat spreader" and names[-1] == "1,664 gold lands", names)
+        spec = page.locator("#sr-spec").inner_text()
+        check("spec table: 1,664 lands, 14 × 11 mm die", "1,664 gold lands" in spec and "14.0 × 11.0 mm" in spec, spec)
+        thumbs = page.evaluate("[...document.querySelectorAll('.sr-thumb img')].map((i) => i.complete && i.naturalWidth)")
+        check("three Cycles renders load", len(thumbs) == 3 and all(w and w >= 800 for w in thumbs), thumbs)
+
+        def hovered(pt):
+            page.mouse.move(pt["x"], pt["y"])
+            page.mouse.move(pt["x"] + 1, pt["y"])
+            try:
+                page.wait_for_selector("#sr-tip:not([hidden])", timeout=4000)
+                return page.locator("#sr-tip b").inner_text()
+            except Exception:
+                return None
+
+        ihs0 = hover_label("heat-spreader")
+        check("hovering the lid names it", hovered(ihs0) == "Heat spreader")
+        page.locator("#sr-explode").fill("1")
+        page.wait_for_function(f"{SR}.debug.drawn().explode > 0.97", timeout=30000)
+        d = drawn()
+        ihs1 = hover_label("heat-spreader")
+        check("Explode lifts the lid and drops the lands", d["positions"]["heat-spreader"] > 15 and d["positions"]["lga-pads"] < -5, d["positions"])
+        check("and the lid moves up the screen", ihs1["y"] < ihs0["y"] - 40, (ihs0, ihs1))
+        page.keyboard.press("e")
+        page.wait_for_function(f"{SR}.debug.drawn().explode < 0.03", timeout=30000)
+        check("E puts it back together", page.locator("#sr-explode").input_value() == "0")
+        page.click("#sr-lid")
+        page.wait_for_function(f"!{SR}.debug.drawn().visible['heat-spreader']", timeout=30000)
+        page.wait_for_timeout(600)
+        check("Lid off shows the die under the pointer", hovered(hover_label("die")) == "Silicon die")
+        page.mouse.click(*[hover_label("die")[k] for k in ("x", "y")])
+        page.wait_for_timeout(500)
+        card = page.locator("#sr-card").inner_text()
+        check("clicking the die explains it", "Silicon die" in card and "14 × 11 mm" in card, card[:120])
+        check("and marks it in the list", "on" in (page.locator("#sr-part-die").get_attribute("class") or ""))
+        page.click("#sr-lid")
+        page.click("#sr-flip")
+        page.wait_for_function(f"Math.abs({SR}.debug.drawn().rotation - Math.PI) < 0.02", timeout=30000)
+        page.wait_for_timeout(800)
+        under = hovered(hover_label("lga-pads"))
+        check("Turn over shows the underside", under in ("1,664 gold lands", "48 capacitors, underside"), under)
+        page.click("#sr-flip")
+        page.click("#sr-p-bright")
+        page.wait_for_timeout(300)
+        check("Bright light changes the backdrop", page.evaluate("getComputedStyle(document.querySelector('#sr')).backgroundImage").count("244, 246, 248") == 1)
+        page.click("#sr-p-studio")
+        az0 = page.evaluate(f"Math.atan2({SR}.debug.camera.position.x, {SR}.debug.camera.position.z)")
+        page.click("#sr-spin")
+        try:   # orbit damping ramps up per frame, and a software renderer draws few of them
+            page.wait_for_function(f"Math.abs(Math.atan2({SR}.debug.camera.position.x, {SR}.debug.camera.position.z) - {az0}) > 0.05", timeout=30000)
+        except Exception:
+            pass
+        az1 = page.evaluate(f"Math.atan2({SR}.debug.camera.position.x, {SR}.debug.camera.position.z)")
+        page.click("#sr-spin")
+        check("Turntable turns the camera", abs(az1 - az0) > 0.05, (az0, az1))
+        page.wait_for_function(f"Math.abs({SR}.debug.drawn().rotation) < 0.02", timeout=30000)
+        page.click("#sr-v-life")
+        page.wait_for_timeout(2500)
+        width = page.evaluate(f"""(() => {{
+          const d = {SR}.debug, THREE_V = d.camera.position.constructor;
+          const sub = d.pivot.children.find((o) => o.name === 'Substrate');
+          sub.updateWorldMatrix(true, true);
+          const y = sub.localToWorld(new THREE_V(0, 1.15, 0)).y;
+          const a = new THREE_V(-20, y, 0).project(d.camera), b = new THREE_V(20, y, 0).project(d.camera);
+          return (b.x - a.x) / 2 * d.renderer.domElement.clientWidth;
+        }})()""")
+        check("Life size draws 40 mm as 151 CSS pixels", abs(width - 40 * 96 / 25.4) < 6, round(width, 1))
+        check("and says how to check it", page.locator("#sr-life").is_visible())
+        page.click("#sr-r-exploded")
+        page.wait_for_timeout(800)
+        lb = page.evaluate("(() => { const i = document.querySelector('#sr-lb-img'); return [i.complete && i.naturalWidth, !document.querySelector('#sr-lb').hidden]; })()")
+        check("a render opens over the live view", lb[1] and lb[0] and lb[0] >= 800, lb)
+        check("and the live view stops drawing under it", drawn()["running"] is False)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        check("Escape closes it and drawing resumes", page.locator("#sr-lb").is_hidden() and drawn()["running"] is True)
+        page.click("#group-compare")
+        page.wait_for_timeout(500)
+        check("leaving the showroom brings the bench back", page.locator("#sr").is_hidden() and drawn()["running"] is False
+              and page.evaluate("getComputedStyle(document.querySelector('#viewport > canvas')).visibility") == "visible")
+
         print("Other tabs")
         page.click("#group-compare")
         page.click("#tab-usage")
@@ -323,6 +417,10 @@ def run(url):
         phone.wait_for_timeout(1200)
         sw = phone.evaluate("[document.documentElement.scrollWidth, innerWidth]")
         check("Timeline fits at 400px", sw[0] <= sw[1] and phone.locator("#tl").is_visible(), sw)
+        phone.goto(url + "#showroom", wait_until="networkidle")
+        phone.wait_for_function("window.bitWidthLab.showroom && window.bitWidthLab.showroom.state.ready", timeout=90000)
+        sw = phone.evaluate("[document.documentElement.scrollWidth, innerWidth, document.querySelector('.sr-bar-tools').getBoundingClientRect().right]")
+        check("Showroom and its toolbar fit at 400px", sw[0] <= sw[1] and sw[2] <= sw[1], sw)
         check("no console errors on phone", not errors, errors)
         browser.close()
 

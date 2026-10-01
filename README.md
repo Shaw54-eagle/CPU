@@ -2,8 +2,8 @@
 
 A 3D comparison of 8-, 16-, 32-, 64- and 128-bit CPUs, plus a stress test, a
 chip builder, an instruction-by-instruction stepper, an animated history of
-the CPU and a bench of real chips. It runs on your own machine and nothing on
-it goes anywhere.
+the CPU, a bench of real chips and a realistic package modelled in Blender. It
+runs on your own machine and nothing on it goes anywhere.
 
     python3 serve.py --open        # http://127.0.0.1:7171
 
@@ -51,6 +51,15 @@ per wafer, yield and a rough cost per good die.
 
 Sources are listed in both tabs.
 
+**Showroom.** One CPU package, modelled in Blender the way real ones are built
+and lit like a product shot: 1,664 gold lands, a 40 mm substrate under solder
+mask, 115 capacitors, underfill, a 14 × 11 mm die, indium, a sealant bead and a
+nickel heat spreader with a laser-etched marking. Drag it round, pull the
+layers apart, take the lid off, turn it over, change the light (studio, dark
+room, bright), set it spinning, or show it at life size. Hover any part for its
+name; click for what it does. The panel holds the Cycles renders of the same
+model to compare against the live view.
+
 | In the 3D view | What it shows |
 | --- | --- |
 | The floating register | One cube per bit, holding the current Unix time (31 bits). |
@@ -63,7 +72,25 @@ Sources are listed in both tabs.
 Keys: `0` all, `1`–`6` each chip, `C` close-up, `U` underneath, `L` lid,
 `E` explode, `B` lanes, `P` power pins, `H` heat, `T` labels. On the
 timeline: space plays, `←` `→` step between events, `Home` and `End` jump to
-the ends. Every tab has its own link: `#stress`, `#timeline`, `#build`…
+the ends. In the Showroom: `E` explode, `L` lid, `F` turn over, `R` turntable,
+`1`–`6` camera views, `Esc` clears. Every tab has its own link: `#stress`,
+`#timeline`, `#showroom`…
+
+## The Blender model
+
+Everything in the Showroom comes from two scripts in `blender/`:
+
+    python3 blender/textures.py                          # marking, solder mask, die art → blender/textures/
+    blender -b -P blender/make_chip.py -- --save --render --export
+
+`textures.py` needs Python with Pillow and NumPy; the engraving text is at the
+top of it. `make_chip.py` builds the chip and a studio (backdrop, softboxes,
+three cameras), then with `--save` writes `blender/chip.blend`, with
+`--render` path-traces `blender/renders/*.jpg` in Cycles, and with `--export`
+writes `models/chip.glb`, which is what the page loads. It also runs from
+Blender's Scripting tab (open it, press Run) or as `python make_chip.py` with
+the `bpy` module installed. Made with Blender 5.0; open `chip.blend` in 5.0 or
+newer.
 
 ## Honest limits
 
@@ -80,6 +107,12 @@ the ends. Every tab has its own link: `#stress`, `#timeline`, `#build`…
 - The timeline's record counters cover the chips on the timeline, not every
   chip ever made, and process names below about 22 nm are product labels
   rather than measured lengths.
+- The Showroom package is generic, not a copy of any product; its name and
+  markings are invented. The die is drawn circuit side up so there's something
+  to see; in a real flip chip that side faces down onto the bumps. The die
+  pattern illustrates a floorplan rather than reproducing one. The live view
+  approximates the Cycles renders: no bounced light, shadows from one lamp.
+  Life size assumes 96 CSS pixels to the inch, which many screens aren't.
 
 ## Files
 
@@ -94,11 +127,14 @@ the ends. Every tab has its own link: `#stress`, `#timeline`, `#build`…
 | `scene.js` | The three.js bench: packages, floorplans, contacts, coolers, heat view, real dies. |
 | `panel.js` | Navigation and the Compare and Speed tabs. |
 | `tab-stress.js`, `tab-watch.js`, `tab-build.js`, `tab-real.js`, `tab-timeline.js` | The other tabs; the timeline also draws its animated stage over the viewport. |
+| `showroom.js`, `tab-showroom.js` | The Showroom's own renderer (physical materials, studio light, soft shadows) and its tab. |
+| `blender/textures.py`, `blender/make_chip.py` | Draw the textures; build, render and export the chip. See above. |
+| `blender/chip.blend`, `blender/renders/`, `models/chip.glb` | What those scripts made: the Blender file, the Cycles renders, the model the page loads. |
 | `charts.js` | Live line charts for the stress test. |
 | `ui.js` | Shared panel pieces and bench state. |
 | `main.js` | Wires the top bar, keys, heat legend and boot screen. |
 | `serve.py` | Localhost server. |
-| `check.py` | 78 browser-driven checks: `python3 check.py`. Needs `pip install playwright && playwright install chromium`. |
-| `vendor/three.bundle.min.js` | three.js r186 with OrbitControls and CSS2DRenderer, bundled so the page works offline. MIT, see `vendor/LICENSE-three.txt`. |
+| `check.py` | 101 browser-driven checks: `python3 check.py`. Needs `pip install playwright && playwright install chromium`. |
+| `vendor/three.bundle.min.js` | three.js r186 with OrbitControls, CSS2DRenderer and GLTFLoader, bundled so the page works offline. MIT, see `vendor/LICENSE-three.txt`. |
 
 Fonts come from Google Fonts when online and fall back to system fonts when not.

@@ -41,7 +41,7 @@ function renderViews() {
   const list = real ? [] : benchChips();
   if (cam.view !== 'all' && !list.some((c) => c.key === cam.view)) cam.view = 'all';
   views.innerHTML = `<span class="glabel">View</span>
-    <button type="button" role="radio" aria-checked="${cam.view === 'all'}" data-view="all" id="v-all" title="Everything (0)" ${scene.mode === 'timeline' ? 'disabled' : ''}>All</button>
+    <button type="button" role="radio" aria-checked="${cam.view === 'all'}" data-view="all" id="v-all" title="Everything (0)" ${scene.mode === 'timeline' || scene.mode === 'showroom' ? 'disabled' : ''}>All</button>
     ${list.map((c, i) => `<button type="button" role="radio" aria-checked="${cam.view === c.key}" data-view="${c.key}" id="v-${c.key}" title="${esc(c.title)} (${i + 1})"><span class="sw s${c.key}"></span>${esc(tag(c))}</button>`).join('')}`;
   for (const id of ['f-close', 'f-under', 't-lid', 't-explode', 't-bus', 't-power', 't-thermal']) {
     document.getElementById(id).disabled = real;
@@ -140,7 +140,7 @@ addEventListener('keydown', (ev) => {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
   if (ev.target.closest('input, textarea, select')) return;
   const k = ev.key.toLowerCase();
-  if (scene.mode === 'timeline') return;   // the timeline has its own keys
+  if (scene.mode === 'timeline' || scene.mode === 'showroom') return;   // they have their own keys
   const keys = scene.mode === 'real' ? [] : benchChips().map((c) => c.key);
   let handled = true;
   if (k === '0') setView('all');
