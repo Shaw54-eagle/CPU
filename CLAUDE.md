@@ -13,15 +13,15 @@ system fonts when offline.
 
 It started as a 3D comparison of 32-, 64- and 128-bit CPUs and grew in stages:
 
-- **Stage 1** (on `main`): the 3D bench comparing input, usage, parts, size and speed.
-- **Stage 2** (branch `stage-2`, draft PR #1): 8- and 16-bit chips, stress test
-  with live stats over the 3D view, build-a-chip, watch-an-op, real chips,
-  animated timeline of CPU history.
-- **Showroom** (also `stage-2`, PR #1): a realistic package modelled in Blender,
-  viewed live with physical materials.
+- **Stage 1**: the 3D bench comparing input, usage, parts, size and speed.
+- **Stage 2** (PR #1): 8- and 16-bit chips, stress test with live stats over
+  the 3D view, build-a-chip, watch-an-op, real chips, animated timeline of CPU
+  history.
+- **Showroom** (also PR #1): a realistic package modelled in Blender, viewed
+  live with physical materials.
 
-Work on `stage-2` until PR #1 is merged. README.md is the user-facing tour;
-this file is the why and the gotchas.
+All three are on `main`. Start new work on a branch and merge it with a PR.
+README.md is the user-facing tour; this file is the why and the gotchas.
 
 ## Files
 
@@ -139,8 +139,12 @@ The writing is part of the product.
 
 ## Where things stand
 
-- `stage-2` is pushed and PR #1 (draft) describes everything in it. Nothing is
-  merged to `main` beyond stage 1.
+- Everything above is merged to `main` through PR #1, whose description is the
+  fullest account of stage 2 and the Showroom. No further stage is planned yet.
+- Never run on a real machine: the site has only been driven by `check.py` in
+  headless Chromium with software WebGL, never in Safari or on a real GPU;
+  `chip.blend` has only been opened by headless Blender; and
+  `Start Bit Width Lab.command` has never been double-clicked on a Mac.
 - The user wants to keep working on the Blender model on their Mac, through an
   MCP server that can drive Blender. A cloud session can't reach the Mac, so
   that work happens in a session running there.
